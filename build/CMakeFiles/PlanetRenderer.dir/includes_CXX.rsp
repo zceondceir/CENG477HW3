@@ -1,0 +1,1 @@
+-I"C:/Users/USER/OneDrive/Desktop/HW3-Starter/ext/glfw/include" -I"C:/Users/USER/OneDrive/Desktop/HW3-Starter/ext/stb_image/include" -isystem "C:/Users/USER/OneDrive/Desktop/HW3-Starter/ext/glad/include" -isystem "C:/Users/USER/OneDrive/Desktop/HW3-Starter/ext/glm"

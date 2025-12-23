@@ -1,0 +1,14 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/ext/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/ext/glfw/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/ext/glfw/src/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/ext/glm/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/ext/glm/glm/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/ext/glad/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/HW3-Starter/build/ext/stb_image/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
