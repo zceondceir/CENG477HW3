@@ -42,7 +42,7 @@ struct GLState
     glm::vec3 pos   = glm::vec3(0.0f, 0.0f, 2.0f);
     glm::vec3 up    = glm::vec3(0.0f, 1.0f, 0.0f);
     // Render mode
-    uint32_t mode = 2;
+    uint32_t mode = 0;
 
     // Constructors, Movement & Destructor
                 GLState(const char* const windowName,
@@ -53,10 +53,22 @@ struct GLState
     GLState&    operator=(const GLState&) = delete;
     GLState&    operator=(GLState&&) = delete;
                 ~GLState();
+    
+    glm::vec3 earthVec;
+    glm::vec3 moonVec;
+    glm::vec3 jupiterVec;
+
+    float FOV = 50.0f;
+
+    bool leftButtonPressed = false;
+    double lastX, lastY;
+    float yaw = -90.0f;
+    float pitch = 0.0f;
+    float SimSpeed = 0.5f;
 };
 
 struct ShaderGL
-{
+{   
     enum Type
     {
         VERTEX      = GL_VERTEX_SHADER,

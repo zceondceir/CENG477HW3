@@ -9,17 +9,52 @@
 
 void MouseMoveCallback(GLFWwindow* wnd, double x, double y)
 {
+    GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
 
+    if (!state->leftButtonPressed) {
+        state->lastX = x;
+        state->lastY = y;
+        return;
+    }
+
+    float xoffset = (float)(x - state->lastX) * 0.1f;
+    float yoffset = (float)(state->lastY - y) * 0.1f;
+    state->lastX = x;
+    state->lastY = y;
+
+    state->yaw   += xoffset;
+    state->pitch += yoffset;
+
+    // Pitch sınırını koru (Kutuplarda takla atmamak için)
+    if (state->pitch > 89.0f)  state->pitch = 89.0f;
+    if (state->pitch < -89.0f) state->pitch = -89.0f;
 }
 
-void MouseButtonCallback(GLFWwindow* wnd, int button, int action, int)
+void MouseButtonCallback(GLFWwindow* wnd, int button, int action, int mods)
 {
+    GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
 
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW_PRESS) {
+            state->leftButtonPressed = true;
+            // Tıkladığı anda farenin o anki konumunu "ilk konum" olarak alalım ki sıçrama yapmasın
+            glfwGetCursorPos(wnd, &state->lastX, &state->lastY);
+        } else if (action == GLFW_RELEASE) {
+            state->leftButtonPressed = false;
+        }
+    }
 }
-
 void MouseScrollCallback(GLFWwindow* wnd, double dx, double dy)
 {
+    // Pencereye bağlı olan GLState pointer'ını alıyoruz
+    GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
 
+    // FOV değerini dy miktarına göre değiştir (Hızı ayarlamak için 2.0f ile çarptık)
+    state->FOV -= (float)dy * 2.0f;
+
+    // Kamera açısının çok fazla bozulmaması için sınırlar koyalım
+    if (state->FOV < 5.0f)   state->FOV = 5.0f;   // Maksimum zoom
+    if (state->FOV > 120.0f) state->FOV = 120.0f; // Maksimum geniş açı
 }
 
 void FramebufferChangeCallback(GLFWwindow* wnd, int w, int h)
@@ -32,16 +67,38 @@ void FramebufferChangeCallback(GLFWwindow* wnd, int w, int h)
 void KeyboardCallback(GLFWwindow* wnd, int key, int scancode, int action, int modifier)
 {
     GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
-    uint32_t mode = state->mode;
+    if(action != GLFW_PRESS) return;
 
-    if(action != GLFW_RELEASE) return;
+    uint32_t oldMode = state->mode;
+    
+    // Modu değiştir
+    if(key == GLFW_KEY_P) state->mode = (state->mode == 3) ? 0 : (state->mode + 1);
+    if(key == GLFW_KEY_O) state->mode = (state->mode == 0) ? 3 : (state->mode - 1);
 
-    if(key == GLFW_KEY_P) mode = (mode == 3) ? 0 : (mode + 1);
-    if(key == GLFW_KEY_O) mode = (mode == 0) ? 3 : (mode - 1);
+    // EĞER ŞİMDİ MOD 3'E GİRDİYSEK (Kritik Düzeltme)
+    if (state->mode == 3 && oldMode != 3) {
+        // Yörünge kamerasında (Orbit) bakış yönümüz merkeze doğrudur.
+        // Serbest kameraya geçtiğimizde kameranın kafasını 180 derece çevirmeliyiz 
+        // ki baktığımız gezegeni görmeye devam edelim.
+        state->yaw += 180.0f;
+        
+        // Pitch değerini tersine çevirerek bakış açısını dikeyde de hizalarız.
+        state->pitch = -state->pitch;
+    }
+        if(key == GLFW_KEY_L) {
+        state->SimSpeed += 0.1f;
+        
+        // Üst limit koyalım ki gezegenler sapıtmasın (örneğin 10 kat hız)
+        if(state->SimSpeed > 5.0f) state->SimSpeed = 5.0f;
+    }
 
-    state->mode = mode;
+    if(key == GLFW_KEY_K) {
+        state->SimSpeed -= 0.1f;
+        
+        // Alt limit koyalım (örneğin -10 kat geri sarma)
+        if(state->SimSpeed < 0.0f) state->SimSpeed = 0.0f;
+    }
 }
-
 
 
 glm::mat4 drawEarth(
@@ -220,37 +277,99 @@ int main(int argc, const char* argv[])
     TextureGL JupiterTex = TextureGL("textures/2k_jupiter.jpg", TextureGL::LINEAR, TextureGL::REPEAT);
 
     // --- DEĞİŞİKLİK 1: Zaman Değişkenleri ---
-    float SimSpeed = 1.0f;         // Zamanın akış hızı
+    
     float CurrentSimTime = 0.0f;   // Simülasyonda geçen toplam zaman
     float lastFrameTime = 0.0f;    // Delta time hesabı için
 
     // --- DEĞİŞİKLİK 2: Kamerayı Başlat ---
     glm::vec3 CameraStartPos = glm::vec3(0.0f, 0.0f, 5.0f);
     state.pos = CameraStartPos;    // state içindeki pozisyonu güncelle
+    
 
     // =============== //
     //   RENDER LOOP   //
     // =============== //
+
     while(!glfwWindowShouldClose(state.window))
     {
 
         glfwPollEvents();
+
+        
 
         float currentTime = (float)glfwGetTime();
         float deltaTime = currentTime - lastFrameTime;
         lastFrameTime = currentTime;
         
         // Simülasyon zamanını ilerlet (Speed 0 ise zaman durur)
-        CurrentSimTime += deltaTime * SimSpeed;
+        CurrentSimTime += deltaTime * state.SimSpeed;
+
+        if (state.mode == 3) {
+        float cameraSpeed = 5.0f * deltaTime; // deltaTime ile çarpmak hızı sabitler
+        
+        // Bakış yönünü (forward) hesapla: Gaze bir nokta olduğu için, 
+        // bakış yönü = Gaze - Pos
+        glm::vec3 forward = glm::normalize(state.gaze - state.pos);
+        // Sağ yönü (right) hesapla
+        glm::vec3 right = glm::normalize(glm::cross(forward, state.up));
+
+        if (glfwGetKey(state.window, GLFW_KEY_W) == GLFW_PRESS)
+            state.pos += forward * cameraSpeed;
+        if (glfwGetKey(state.window, GLFW_KEY_S) == GLFW_PRESS)
+            state.pos -= forward * cameraSpeed;
+        if (glfwGetKey(state.window, GLFW_KEY_A) == GLFW_PRESS)
+            state.pos -= right * cameraSpeed;
+        if (glfwGetKey(state.window, GLFW_KEY_D) == GLFW_PRESS)
+            state.pos += right * cameraSpeed;
+
+        // Kameranın baktığı yeri de konumla beraber kaydır ki bakış açısı bozulmasın
+        // (Eğer gaze hep merkeze baksın istiyorsan bu satırı sil)
+        state.gaze = state.pos + forward; 
+    }
 
         glViewport(0, 0, state.width, state.height);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4x4 proj = glm::perspective(glm::radians(50.0f),
-                                             float(state.width) / float(state.height),
-                                           0.01f, 100.0f);
-        
-        glm::mat4x4 view = glm::lookAt(state.pos, state.gaze, state.up);
+        glm::mat4x4 proj;
+        glm::mat4x4 view;
+
+        proj = glm::perspective(glm::radians(state.FOV), (float)state.width / (float)state.height, 0.1f, 1000.0f);
+        // Bu yardımcı hesaplamayı switch/if-else bloğunun hemen üstünde yapabilirsin
+        glm::vec3 dir;
+        dir.x = cos(glm::radians(state.yaw)) * cos(glm::radians(state.pitch));
+        dir.y = sin(glm::radians(state.pitch));
+        dir.z = sin(glm::radians(state.yaw)) * cos(glm::radians(state.pitch));
+
+        // 2. MODLARA GÖRE DAVRAN
+        if (state.mode == 0) { // DÜNYA
+            state.pos = state.earthVec + dir * 6.0f; 
+            view = glm::lookAt(state.pos, state.earthVec, state.up);
+        }
+        else if (state.mode == 1) { // AY
+            state.pos = state.moonVec + dir * 2.0f;
+            view = glm::lookAt(state.pos, state.moonVec, state.up);
+        }
+        else if (state.mode == 2) { // UYDU
+            state.pos = state.jupiterVec + dir * 0.5f;
+            view = glm::lookAt(state.pos, state.jupiterVec, state.up);
+        }
+        else if (state.mode == 3) { // SERBEST (WASD BURADA YAŞAYACAK)
+            float cameraSpeed = 5.0f * deltaTime;
+            
+            // Yön vektörlerini hesapla (FPS tarzı)
+            glm::vec3 forward = glm::normalize(dir); // dir zaten bakış yönümüz
+            glm::vec3 right = glm::normalize(glm::cross(forward, state.up));
+
+            // Klavyeyi kontrol et
+            if (glfwGetKey(state.window, GLFW_KEY_W) == GLFW_PRESS) state.pos += forward * cameraSpeed;
+            if (glfwGetKey(state.window, GLFW_KEY_S) == GLFW_PRESS) state.pos -= forward * cameraSpeed;
+            if (glfwGetKey(state.window, GLFW_KEY_A) == GLFW_PRESS) state.pos -= right * cameraSpeed;
+            if (glfwGetKey(state.window, GLFW_KEY_D) == GLFW_PRESS) state.pos += right * cameraSpeed;
+
+            // Bakış noktasını önümüze koy
+            state.gaze = state.pos + forward;
+            view = glm::lookAt(state.pos, state.gaze, state.up);
+        }
 
         glm::mat4 EarthPos = drawEarth(state, Earth, EarthTex, 
                                   vShader.shaderId, fShader.shaderId, 
@@ -274,6 +393,10 @@ int main(int argc, const char* argv[])
                              0.1f);
         
         glfwSwapBuffers(state.window);
+
+        state.earthVec   = glm::vec3(EarthPos[3]);
+        state.moonVec    = glm::vec3(MoonPos[3]);
+        state.jupiterVec = glm::vec3(JupiterPos[3]);
     }
 
 }

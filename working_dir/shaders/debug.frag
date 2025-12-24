@@ -39,19 +39,5 @@ uniform T_ALBEDO sampler2D tAlbedo;
 
 void main(void)
 {
-	uint mode = uMode;
-	switch(mode)
-	{
-		// Pure Red
-		case 0: fboColor = vec4(1, 0, 0, 1); break;
-		// Vertex Normals. Normal axes by definition is between [-1, 1])
-		// Color is in between [0, 1]) so we adjust here for that
-		case 1: fboColor = vec4((fNormal + 1) * 0.5, 1); break;
-		// UV
-		case 2: fboColor = vec4(fUV, 0, 1); break;
-		// Texture Mapping without shading.
-		case 3: fboColor = texture2D(tAlbedo, fUV); break;
-		// If mode is wrong, put pure white.
-		default: fboColor = vec4(1); break;
-	}
+	fboColor = texture2D(tAlbedo, fUV);
 }

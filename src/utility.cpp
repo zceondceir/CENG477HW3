@@ -119,6 +119,14 @@ GLState::GLState(const char* const windowName,
     glBindProgramPipeline(renderPipeline);
 
     // All done! Happy rendering.
+
+    earthVec   = glm::vec3(0.0f);
+    moonVec    = glm::vec3(0.0f);
+    jupiterVec = glm::vec3(0.0f);
+    pos  = glm::vec3(0.0f, 2.0f, 6.0f); // Dünya izleme konumu
+    gaze = glm::vec3(0.0f, 0.0f, 0.0f); // Merkeze bak
+    up   = glm::vec3(0.0f, 1.0f, 0.0f); // Tavan yukarıda
+    mode = 0;
 }
 
 GLState::~GLState()
