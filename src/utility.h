@@ -64,7 +64,7 @@ struct GLState
     double lastX, lastY;
     float yaw = -90.0f;
     float pitch = 0.0f;
-    float SimSpeed = 0.5f;
+    float SimSpeed = 1.0f;
 };
 
 struct ShaderGL

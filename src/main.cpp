@@ -7,8 +7,16 @@
 
 #include <glm/ext.hpp> // for matrix calculation
 
-void MouseMoveCallback(GLFWwindow* wnd, double x, double y)
-{
+
+// Merhabalar hocam simulasyonda istediginiz degiskenleri degistrebilirsiniz 
+// Sizler icin bazi degistirmek isteyebileceginizi dusunduhumuz yerlere isaret koyduk
+// Bunlari bulmak icin dosya icinde "abc" aratabilirsiniz.
+
+
+void MouseMoveCallback(GLFWwindow* wnd, double x, double y){
+    
+    const float changeSpeed = 0.2f;    //abc  // This for the panning the camera.
+
     GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
 
     if (!state->leftButtonPressed) {
@@ -17,44 +25,45 @@ void MouseMoveCallback(GLFWwindow* wnd, double x, double y)
         return;
     }
 
-    float xoffset = (float)(x - state->lastX) * 0.1f;
-    float yoffset = (float)(state->lastY - y) * 0.1f;
+    float xoffset = (float)(x - state->lastX) * changeSpeed;
+    float yoffset = (float)(state->lastY - y) * changeSpeed;
     state->lastX = x;
     state->lastY = y;
 
     state->yaw   += xoffset;
     state->pitch += yoffset;
 
-    // Pitch sınırını koru (Kutuplarda takla atmamak için)
     if (state->pitch > 89.0f)  state->pitch = 89.0f;
     if (state->pitch < -89.0f) state->pitch = -89.0f;
 }
 
-void MouseButtonCallback(GLFWwindow* wnd, int button, int action, int mods)
-{
+void MouseButtonCallback(GLFWwindow* wnd, int button, int action, int mods){
+    
     GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
 
     if (button == GLFW_MOUSE_BUTTON_LEFT) {
         if (action == GLFW_PRESS) {
             state->leftButtonPressed = true;
-            // Tıkladığı anda farenin o anki konumunu "ilk konum" olarak alalım ki sıçrama yapmasın
             glfwGetCursorPos(wnd, &state->lastX, &state->lastY);
         } else if (action == GLFW_RELEASE) {
             state->leftButtonPressed = false;
         }
     }
 }
+
 void MouseScrollCallback(GLFWwindow* wnd, double dx, double dy)
 {
-    // Pencereye bağlı olan GLState pointer'ını alıyoruz
+    
+    const float changeSpeed = 1.0f; //abc  // This is for the zooming in/out
+    const float minFOV = 5.0f;
+    const float maxFOV = 120.0f;
+
     GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
 
-    // FOV değerini dy miktarına göre değiştir (Hızı ayarlamak için 2.0f ile çarptık)
-    state->FOV -= (float)dy * 2.0f;
+    state->FOV -= (float)dy * changeSpeed;
 
-    // Kamera açısının çok fazla bozulmaması için sınırlar koyalım
-    if (state->FOV < 5.0f)   state->FOV = 5.0f;   // Maksimum zoom
-    if (state->FOV > 120.0f) state->FOV = 120.0f; // Maksimum geniş açı
+    if (state->FOV < minFOV) state->FOV = minFOV;   
+    if (state->FOV > maxFOV) state->FOV =  maxFOV; 
 }
 
 void FramebufferChangeCallback(GLFWwindow* wnd, int w, int h)
@@ -66,37 +75,27 @@ void FramebufferChangeCallback(GLFWwindow* wnd, int w, int h)
 
 void KeyboardCallback(GLFWwindow* wnd, int key, int scancode, int action, int modifier)
 {
+    
+    const float changeSpeed = 0.2f;  //abc Simulation time settings
+    const float maxSimSpeed = 3.0f;     
+    const float minSimSpeed = -3.0f; // Recall that the simulation can do backwards
+    
     GLState* state = static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
     if(action != GLFW_PRESS) return;
 
     uint32_t oldMode = state->mode;
     
-    // Modu değiştir
     if(key == GLFW_KEY_P) state->mode = (state->mode == 3) ? 0 : (state->mode + 1);
     if(key == GLFW_KEY_O) state->mode = (state->mode == 0) ? 3 : (state->mode - 1);
 
-    // EĞER ŞİMDİ MOD 3'E GİRDİYSEK (Kritik Düzeltme)
-    if (state->mode == 3 && oldMode != 3) {
-        // Yörünge kamerasında (Orbit) bakış yönümüz merkeze doğrudur.
-        // Serbest kameraya geçtiğimizde kameranın kafasını 180 derece çevirmeliyiz 
-        // ki baktığımız gezegeni görmeye devam edelim.
-        state->yaw += 180.0f;
-        
-        // Pitch değerini tersine çevirerek bakış açısını dikeyde de hizalarız.
-        state->pitch = -state->pitch;
-    }
-        if(key == GLFW_KEY_L) {
-        state->SimSpeed += 0.1f;
-        
-        // Üst limit koyalım ki gezegenler sapıtmasın (örneğin 10 kat hız)
-        if(state->SimSpeed > 5.0f) state->SimSpeed = 5.0f;
+    if(key == GLFW_KEY_L) {
+        state->SimSpeed += changeSpeed;
+        if(state->SimSpeed > maxSimSpeed) state->SimSpeed = maxSimSpeed;
     }
 
     if(key == GLFW_KEY_K) {
-        state->SimSpeed -= 0.1f;
-        
-        // Alt limit koyalım (örneğin -10 kat geri sarma)
-        if(state->SimSpeed < 0.0f) state->SimSpeed = 0.0f;
+        state->SimSpeed -= changeSpeed;
+        if(state->SimSpeed < minSimSpeed) state->SimSpeed = minSimSpeed;
     }
 }
 
@@ -141,7 +140,7 @@ glm::mat4 drawEarth(
     // Bu işlemler sadece Dünya'nın grafiğini etkiler, konumunu değil.
     float angle = simTime * earthSpinSpeed;
     model = glm::rotate(model, angle, glm::vec3(0, 1, 0));
-    model = glm::scale(model, glm::vec3(1.0f)); 
+     
 
 
     // --- 2. ÇİZİM İŞLEMLERİ (Aynı) ---
@@ -163,6 +162,7 @@ glm::mat4 drawEarth(
     glBindVertexArray(mesh.vaoId);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.iBufferId);
     glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
     // --- SONUÇ: DÜNYANIN MERKEZİNİ DÖNDÜR ---
@@ -179,17 +179,14 @@ glm::mat4 drawMoon(
     glm::mat4 view,
     glm::mat4 proj,
     float simTime,
-    glm::mat4 parentMatrix, // Kimin etrafında dönecek?
-    float orbitRadius,      // Ne kadar uzakta dönecek?
-    float orbitSpeed,       // Ne kadar hızlı dönecek? (Bunu da ekledim, çok lazım olacak)
-    float scaleSize)        // Boyutu ne olacak?
+    glm::mat4 parentMatrix, 
+    float orbitRadius,      
+    float orbitSpeed,       
+    float scaleSize)        
 {
-    // --- Ayarlar ---
-    // Sabit hız yerine parametreden gelen orbitSpeed'i kullanacağız.
-    // Kendi ekseninde dönüş hızı (Spin) sabit kalabilir veya onu da parametre yapabilirsin.
-    const float spinSpeed = 1.0f; 
+    
+    const float spinSpeed = 1.0f; //abc //Not self spin, spin speed of orbiting around the center planet 
 
-    // Shader Location Tanımları (Aynı)
     static constexpr GLuint U_TRANSFORM_MODEL   = 0;
     static constexpr GLuint U_TRANSFORM_VIEW    = 1;
     static constexpr GLuint U_TRANSFORM_PROJ    = 2;
@@ -197,33 +194,19 @@ glm::mat4 drawMoon(
     static constexpr GLuint U_MODE = 0;
     static constexpr GLuint T_ALBEDO = 0;
 
-    // --- 1. MATEMATİKSEL MODELLEME ---
-    
-    // A. Parent Pozisyonu
     glm::mat4 model = parentMatrix; 
 
-    // B. Yörünge Dönüşü (Orbit Rotation)
-    // Parametreden gelen 'orbitSpeed' kullanılıyor
     float orbitAngle = simTime * orbitSpeed;
     model = glm::rotate(model, orbitAngle, glm::vec3(0, 1, 0));
-
-    // C. Uzaklaşma (Translation)
-    // Parametreden gelen 'orbitRadius' kullanılıyor
     model = glm::translate(model, glm::vec3(orbitRadius, 0, 0));
 
-    // --- MERKEZİ KAYDET ---
     glm::mat4 centerMatrix = model;
 
-    // D. Kendi Ekseninde Dönme (Spin)
     float spinAngle = simTime * spinSpeed;
     model = glm::rotate(model, spinAngle, glm::vec3(0, 1, 0));
 
-    // E. Küçülme (Scale)
-    // Parametreden gelen 'scaleSize' kullanılıyor
     model = glm::scale(model, glm::vec3(scaleSize));
 
-
-    // --- 2. ÇİZİM (Aynı) ---
     glm::mat3 normalMatrix = glm::transpose(glm::inverse(glm::mat3(model)));
 
     glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT, vShaderId);
@@ -242,19 +225,55 @@ glm::mat4 drawMoon(
     glBindVertexArray(mesh.vaoId);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.iBufferId);
     glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
     return centerMatrix;
 }
 
 
+void drawBackground(//Not a perspective, instead it a ortho
+    const GLState& state, 
+    const MeshGL& mesh,
+    const TextureGL& texture,
+    GLuint vShaderId,
+    GLuint fShaderId,
+    glm::mat4 view,
+    glm::mat4 proj){
+    
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);     
 
+    glm::mat4 skyView = glm::mat4(glm::mat3(view));
 
+    // In sim, the zoom in/out didnt change the background so we added a const FOV
+    glm::mat4 skyProj = glm::perspective(glm::radians(60.0f), (float)state.width / (float)state.height, 0.1f, 1000.0f);  
 
+    glm::mat4 skyModel = glm::scale(glm::mat4(1.0f), glm::vec3(500.0f));
 
+    glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT, vShaderId);
+    glActiveShaderProgram(state.renderPipeline, vShaderId);
+    
+    glUniformMatrix4fv(0, 1, false, glm::value_ptr(skyModel)); 
+    glUniformMatrix4fv(1, 1, false, glm::value_ptr(skyView));  
+    glUniformMatrix4fv(2, 1, false, glm::value_ptr(skyProj));    
 
+    glUseProgramStages(state.renderPipeline, GL_FRAGMENT_SHADER_BIT, fShaderId);
+    glActiveShaderProgram(state.renderPipeline, fShaderId);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture.textureId);
 
+    glBindVertexArray(mesh.vaoId);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.iBufferId);
 
+    glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+}
 
 int main(int argc, const char* argv[])
 {
@@ -270,21 +289,16 @@ int main(int argc, const char* argv[])
     MeshGL Earth = MeshGL("meshes/sphere_20k.obj");
     MeshGL Moon = MeshGL("meshes/sphere_5k.obj");
     MeshGL Jupiter = MeshGL("meshes/sphere_2k.obj");
+    MeshGL Sky = MeshGL("meshes/sphere_80k.obj");
 
     //Textures
     TextureGL EarthTex = TextureGL("textures/2k_earth_daymap.jpg", TextureGL::LINEAR, TextureGL::REPEAT);
     TextureGL MoonTex = TextureGL("textures/2k_moon.jpg", TextureGL::LINEAR, TextureGL::REPEAT);
     TextureGL JupiterTex = TextureGL("textures/2k_jupiter.jpg", TextureGL::LINEAR, TextureGL::REPEAT);
+    TextureGL SkyTex = TextureGL("textures/8k_stars_milky_way.jpg", TextureGL::LINEAR, TextureGL::REPEAT);
 
-    // --- DEĞİŞİKLİK 1: Zaman Değişkenleri ---
-    
-    float CurrentSimTime = 0.0f;   // Simülasyonda geçen toplam zaman
-    float lastFrameTime = 0.0f;    // Delta time hesabı için
-
-    // --- DEĞİŞİKLİK 2: Kamerayı Başlat ---
-    glm::vec3 CameraStartPos = glm::vec3(0.0f, 0.0f, 5.0f);
-    state.pos = CameraStartPos;    // state içindeki pozisyonu güncelle
-    
+    float CurrentSimTime = 0.0f;   
+    float lastFrameTime = 0.0f;       
 
     // =============== //
     //   RENDER LOOP   //
@@ -295,37 +309,11 @@ int main(int argc, const char* argv[])
 
         glfwPollEvents();
 
-        
-
-        float currentTime = (float)glfwGetTime();
+        float currentTime = static_cast<float>(glfwGetTime());
         float deltaTime = currentTime - lastFrameTime;
         lastFrameTime = currentTime;
         
-        // Simülasyon zamanını ilerlet (Speed 0 ise zaman durur)
         CurrentSimTime += deltaTime * state.SimSpeed;
-
-        if (state.mode == 3) {
-        float cameraSpeed = 5.0f * deltaTime; // deltaTime ile çarpmak hızı sabitler
-        
-        // Bakış yönünü (forward) hesapla: Gaze bir nokta olduğu için, 
-        // bakış yönü = Gaze - Pos
-        glm::vec3 forward = glm::normalize(state.gaze - state.pos);
-        // Sağ yönü (right) hesapla
-        glm::vec3 right = glm::normalize(glm::cross(forward, state.up));
-
-        if (glfwGetKey(state.window, GLFW_KEY_W) == GLFW_PRESS)
-            state.pos += forward * cameraSpeed;
-        if (glfwGetKey(state.window, GLFW_KEY_S) == GLFW_PRESS)
-            state.pos -= forward * cameraSpeed;
-        if (glfwGetKey(state.window, GLFW_KEY_A) == GLFW_PRESS)
-            state.pos -= right * cameraSpeed;
-        if (glfwGetKey(state.window, GLFW_KEY_D) == GLFW_PRESS)
-            state.pos += right * cameraSpeed;
-
-        // Kameranın baktığı yeri de konumla beraber kaydır ki bakış açısı bozulmasın
-        // (Eğer gaze hep merkeze baksın istiyorsan bu satırı sil)
-        state.gaze = state.pos + forward; 
-    }
 
         glViewport(0, 0, state.width, state.height);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -334,42 +322,41 @@ int main(int argc, const char* argv[])
         glm::mat4x4 view;
 
         proj = glm::perspective(glm::radians(state.FOV), (float)state.width / (float)state.height, 0.1f, 1000.0f);
-        // Bu yardımcı hesaplamayı switch/if-else bloğunun hemen üstünde yapabilirsin
-        glm::vec3 dir;
+         
+        glm::vec3 dir; // panning calcutalions // it stays after changing the view mode
         dir.x = cos(glm::radians(state.yaw)) * cos(glm::radians(state.pitch));
         dir.y = sin(glm::radians(state.pitch));
         dir.z = sin(glm::radians(state.yaw)) * cos(glm::radians(state.pitch));
-
-        // 2. MODLARA GÖRE DAVRAN
-        if (state.mode == 0) { // DÜNYA
+   
+        if (state.mode == 0) { 
             state.pos = state.earthVec + dir * 6.0f; 
             view = glm::lookAt(state.pos, state.earthVec, state.up);
         }
-        else if (state.mode == 1) { // AY
+        else if (state.mode == 1) { 
             state.pos = state.moonVec + dir * 2.0f;
             view = glm::lookAt(state.pos, state.moonVec, state.up);
         }
-        else if (state.mode == 2) { // UYDU
+        else if (state.mode == 2) { 
             state.pos = state.jupiterVec + dir * 0.5f;
             view = glm::lookAt(state.pos, state.jupiterVec, state.up);
         }
-        else if (state.mode == 3) { // SERBEST (WASD BURADA YAŞAYACAK)
+        else if (state.mode == 3) {
+            
             float cameraSpeed = 5.0f * deltaTime;
             
-            // Yön vektörlerini hesapla (FPS tarzı)
-            glm::vec3 forward = glm::normalize(dir); // dir zaten bakış yönümüz
+            glm::vec3 forward = glm::normalize(-dir); 
             glm::vec3 right = glm::normalize(glm::cross(forward, state.up));
 
-            // Klavyeyi kontrol et
             if (glfwGetKey(state.window, GLFW_KEY_W) == GLFW_PRESS) state.pos += forward * cameraSpeed;
             if (glfwGetKey(state.window, GLFW_KEY_S) == GLFW_PRESS) state.pos -= forward * cameraSpeed;
             if (glfwGetKey(state.window, GLFW_KEY_A) == GLFW_PRESS) state.pos -= right * cameraSpeed;
             if (glfwGetKey(state.window, GLFW_KEY_D) == GLFW_PRESS) state.pos += right * cameraSpeed;
 
-            // Bakış noktasını önümüze koy
             state.gaze = state.pos + forward;
             view = glm::lookAt(state.pos, state.gaze, state.up);
         }
+
+        drawBackground(state, Sky, SkyTex, vShader.shaderId, fShader.shaderId, view, proj);
 
         glm::mat4 EarthPos = drawEarth(state, Earth, EarthTex, 
                                   vShader.shaderId, fShader.shaderId, 
