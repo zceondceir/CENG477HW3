@@ -1,0 +1,14 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/ext/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/ext/glfw/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/ext/glfw/src/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/ext/glm/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/ext/glm/glm/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/ext/glad/cmake_install.cmake",
+		"C:/Users/USER/OneDrive/Desktop/CENG477HW3-master/build/ext/stb_image/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
